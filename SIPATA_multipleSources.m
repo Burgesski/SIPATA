@@ -110,6 +110,7 @@ function pebblePrediction(inputDataFileName, sedimentSourceCount, oneTransportAx
 end
 
 function [deposLitho, error] = calculateLithologyProportions(sedimentSourceCount, maxDist, lithoStartX, lithoVol, lithoDeposProportion, outcropDistance, outcropPebbleConcentration, oneTransportAxis)
+% OutcropDistance is vector of x positions of all outcrops
 
     lithoN = sedimentSourceCount * 2; % calculate number of lithologies -  2 lithologies per source
     deposLitho = zeros(maxDist, lithoN); % Initialise to avoid slow size-change memory allocation in loop below 
@@ -131,23 +132,22 @@ function [deposLitho, error] = calculateLithologyProportions(sedimentSourceCount
     % Calculate the error assuming either one transport axis, so all sediment sources are mixed together, therefore calculate one pebble proportion 
     if oneTransportAxis
         
-        totalPebblesProportion = sum(deposLitho(:,2:2:lithoN), 2);
+        totalPebblesProportion = sum(deposLitho(:,2:2:lithoN), 2); % Sum the proportion of pebbles at each x location on the model profile
         errors = zeros(1, numel(outcropDistance));
-        for j = 1:numel(outcropDistance)
-            xIndex = round(outcropDistance(j)); % Position of the outcrop data points on the x distance transect
+        for j = 1:numel(outcropDistance) % loop through each outcrop location
+            xIndex = round(outcropDistance(j)); % Position of the outcrop data points on the x distance transect, to compare same x points in model and outcrop data
             errors(j) = abs(totalPebblesProportion(xIndex) - outcropPebbleConcentration(j));
         end
         
-    else % or sediment sources remain separate, so calculate error compared to source that fits closest to observed pebble proportion at each location
+    else % or sediment sources remain separate, so calculate error compared to single pebble source that fits closest to observed pebble proportion at each location
         deposLitho(deposLitho == 0) = NaN; % Remove zeros by setting zero values to NaN
-        % Calculate the error for pebble proportions between data points and model
         errors = zeros(1, numel(outcropDistance));
-        for j = 1:numel(outcropDistance)
+        for j = 1:numel(outcropDistance) % loop through each outcrop location
             % extract the n sediment proportions for jth outcrop data point x position
             xIndex = round(outcropDistance(j)); % get the vector index for the outcrop x km position
-            modelPebbleProportions = deposLitho(xIndex,2:2:lithoN); % Extract the modelled proportions at x position
-            [~,index] = min(abs(outcropPebbleConcentration(j) - modelPebbleProportions)); % Finds the position of the closest matching value in the modelPebbleProportions vector
-            errors(j) = abs(modelPebbleProportions(index) - outcropPebbleConcentration(j));
+            modelTotalPebbleProportions = deposLitho(xIndex,2:2:lithoN); % Extract the modelled pebble proportion for each input sediment source at x position
+            [~,index] = min(abs(outcropPebbleConcentration(j) - modelTotalPebbleProportions)); % Select the closest matching pebble proportion value for the different sediment sources modelPebbleProportions vector
+            errors(j) = abs(modelTotalPebbleProportions(index) - outcropPebbleConcentration(j)); % Calculate the error based on the closest-matching pebble proportions
         end
     end
     
